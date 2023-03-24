@@ -1,45 +1,34 @@
 package net.luckyvalenok.filemanager;
 
+import org.hibernate.Session;
+import org.hibernate.Transaction;
+
 import javax.servlet.http.Cookie;
-import java.util.HashMap;
-import java.util.Map;
 
 public class UserRepository {
     public static final UserRepository USER_REPOSITORY = new UserRepository();
-    private final Map<String, User> usersByLogin = new HashMap<>();
-    private final Map<String, User> userBySession = new HashMap<>();
-
+    
     public User getUserByCookies(Cookie[] cookies) {
-        String session;
         User user;
-        if ((session = CookieUtil.getValue(cookies, "JSESSIONID")) == null || (user = userBySession.get(session)) == null) {
+        if ((user = getUser(CookieUtil.getValue(cookies, "login"))) == null || !user.getPassword().equals(CookieUtil.getValue(cookies, "password"))) {
             return null;
         }
-
+        
         return user;
     }
-
-    public User getUserByLogin(String login) {
-        return usersByLogin.get(login);
+    
+    public User getUser(String login) {
+        Session session = HibernateUtil.getSessionFactory().openSession();
+        User user = session.byNaturalId(User.class).using("login", login).load();
+        session.close();
+        return user;
     }
-
+    
     public void addUser(User user) {
-        usersByLogin.put(user.getLogin(), user);
-    }
-
-    public void addUserBySession(String session, User user) {
-        userBySession.put(session, user);
-    }
-
-    public void removeUserBySession(String session) {
-        userBySession.remove(session);
-    }
-
-    public void removeUser(String login) {
-        usersByLogin.remove(login);
-    }
-
-    public boolean containsUserByLogin(String login) {
-        return usersByLogin.containsKey(login);
+        Session session = HibernateUtil.getSessionFactory().openSession();
+        Transaction transaction = session.beginTransaction();
+        session.persist(user);
+        transaction.commit();
+        session.close();
     }
 }
